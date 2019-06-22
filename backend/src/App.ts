@@ -1,4 +1,5 @@
 var express = require('express');
+var cors = require('cors')
 var bodyParser = require('body-parser');
 var diff2html = require('diff2html');
 var fs = require('fs');
@@ -14,7 +15,7 @@ var MongoStore = require('connect-mongodb-session')(session);
 var path = require('path');
 
 const PROJECT_ROOT   = path.join(__dirname + '/../../../');
-const STATICS_FOLDER = path.join(PROJECT_ROOT, 'frontend/dist/ngdiffy');
+// const STATICS_FOLDER = path.join(PROJECT_ROOT, 'frontend/dist/ngdiffy');
 const INDEX_FILE     = path.join(PROJECT_ROOT + '/frontend/dist/ngdiffy/index.html');
 
 import { MongoSharedDiffRepository } from './v2/SharedDiffRepository/MongoSharedDiffRepository';
@@ -26,6 +27,11 @@ import { SharedDiff } from './v2/SharedDiff';
 //import { LogBasedMetrics } from './v2/Metrics/LogBasedMetrics';
 import { GAMetrics } from './v2/Metrics/GAMetrics';
 
+
+var corsOptions = {
+  origin: 'http://localhost:4200',
+}
+
 var upload = multer({ storage: multer.memoryStorage() });
 var app = express();
 const repo = new MongoSharedDiffRepository(config.db_url, config.db_name);
@@ -35,8 +41,11 @@ if (! config.GA_ANALITYCS_KEY) {
     throw new Error("GA_ANALYTICS_KEY has to be present");
 }
 
-app.use('/assets', express.static(STATICS_FOLDER));
-app.use('/', express.static(STATICS_FOLDER));
+app.use(cors(corsOptions))
+app.options('*', cors(corsOptions)) // include before other routes
+
+// app.use('/assets', express.static(STATICS_FOLDER));
+// app.use('/', express.static(STATICS_FOLDER));
 app.use(bodyParser.json({limit: config.MAX_DIFF_SIZE}));
 app.use (diffTooBigErrorHandler);
 
@@ -149,85 +158,10 @@ app.get('/diff_download/:id', function (req: any, res: any) {
     });
 });
 
-app.get('*', function (req: any, res: any) {
-    res.sendFile(INDEX_FILE);
-});
+// app.get('*', function (req: any, res: any) {
+//     res.sendFile(INDEX_FILE);
+// });
 
-
-/*************** OLD CODE **************/
-
-app.post('/new', upload.single('diffFile'), function (req: any, res: any) {
-    var diff = req.body.udiff;
-    if (req.file) {
-        if (utils.exceedsFileSizeLimit(req.file)) {
-            req.flash('alert', 'File too big, sorry!');
-            res.redirect('/');
-            return;
-        }
-        diff = req.file.buffer.toString();
-    }
-    // remove \r
-    diff = diff.replace(/\r/g, '');
-    // end of param cleaning
-
-    const metrics = new GAMetrics(config.GA_ANALITYCS_KEY, req.cookies._ga || config.GA_API_DEFAULT_KEY);
-    const action = new CreateSharedDiffAction(repo, metrics);
-    if(! action.isValidRawDiff(diff)) {
-        req.flash('alert', 'Not a valid diff');
-        res.redirect('/');
-        return;
-    }
-    const shared_diff = action.createSharedDiff(diff);
-    return action.storeSharedDiff(shared_diff)
-        .then((obj: SharedDiff) => {
-            if (!obj.id) {
-                console.warn("new: undefined obj id");
-            }
-            res.redirect('/diff/' + obj.id)
-        });
-
-});
-
-app.post('/api/new', upload.single('diffFile'), function (req: any, res: any) {
-    var diff = req.body.udiff;
-    // remove \r
-    if (!diff) {
-        res.json({'status': 'error', 'message': 'udiff argument missing'});
-        return;
-    }
-    diff = diff.replace(/\r/g, '');
-
-    const metrics = new GAMetrics(config.GA_ANALITYCS_KEY, config.GA_API_KEY);
-    const action = new CreateSharedDiffAPIAction(repo, metrics);
-    if(! action.isValidRawDiff(diff)) {
-        res.json({'status': 'error', 'message': 'Not a valid diff'});
-        return;
-    }
-    const shared_diff = action.createSharedDiff(diff);
-    return action.storeSharedDiff(shared_diff)
-        .then((obj: SharedDiff) => {
-            if (!obj.id) {
-                console.warn("api.new: undefined obj id");
-            }
-            res.json({'status': 'success', 'url': 'http://diffy.org/diff/' + obj.id});
-        });
-});
-
-app.get('/delete/:id', function (req: any, res: any) {
-    var id = req.params.id;
-    const metrics = new GAMetrics(config.GA_ANALITYCS_KEY, req.cookies._ga || config.GA_API_DEFAULT_KEY);
-    var action = new DeleteSharedDiffAction(repo, metrics);
-    return action.deleteSharedDiff(id)
-        .then(() => {
-            req.flash('success', 'Deleted successfully');
-            res.redirect('/');
-        },
-        (err: any) => {
-            console.error(err);
-            req.flash('alert', 'File not found');
-            res.redirect('/');
-        });
-});
 
 
 var server = app.listen(config.port, config.host, function () {

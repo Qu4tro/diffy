@@ -11,7 +11,7 @@ import { Diff2Html }                  from 'diff2html';
     providedIn: 'root'
 })
 export class DiffyService {
-    private diffyUrl = '/api/diff/';  // URL to web api
+    private diffyUrl = 'http://localhost:3000/api/diff/';  // URL to web api
 
     private storage: {[id: number]: string} = {};
     private idCount = 1;
