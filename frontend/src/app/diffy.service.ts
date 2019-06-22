@@ -11,7 +11,8 @@ import { Diff2Html }                  from 'diff2html';
     providedIn: 'root'
 })
 export class DiffyService {
-    private diffyUrl = 'http://localhost:3000/api/diff/';  // URL to web api
+    private diffyUrl = 'http://localhost:3000';  // base domain
+    private diffyApi = this.diffyUrl + '/api/diff/';  // web api
 
     private storage: {[id: number]: string} = {};
     private idCount = 1;
@@ -53,7 +54,7 @@ export class DiffyService {
     }
 
     public getDiff(id: string): Observable<any> {
-        return this.http.get(this.diffyUrl + id).pipe(
+        return this.http.get(this.diffyApi + id).pipe(
             catchError(this.handleError('getDiff', null))
         );
     }
@@ -63,7 +64,7 @@ export class DiffyService {
             headers: new HttpHeaders({ 'Content-Type': 'application/json' })
         };
 
-        return this.http.put(this.diffyUrl, {diff: diffText}, httpOptions).pipe(
+        return this.http.put(this.diffyApi, {diff: diffText}, httpOptions).pipe(
             catchError(this.handleError('getDiff', null))
         );
     }
@@ -73,12 +74,12 @@ export class DiffyService {
             headers: new HttpHeaders({ 'Content-Type': 'application/json' })
         };
 
-        return this.http.delete(this.diffyUrl + id, httpOptions).pipe(
+        return this.http.delete(this.diffyApi + id, httpOptions).pipe(
             catchError(this.handleError('deleteDiff', null))
         );
     }
 
     downloadDiff(id: string) {
-        window.open("/diff_download/" + id);
+        window.open(this.diffyUrl + "/diff_download/" + id);
     }
 }
